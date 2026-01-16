@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -157,20 +158,86 @@
                 isPlaceholder: true
             }];
 
+            const getLinkedInPlaceholder = (q) => [{
+                source: 'linkedin',
+                title: `🔍 Search LinkedIn for "${q}"`,
+                content: 'Click to search LinkedIn directly.',
+                author: 'LinkedIn',
+                url: `https://www.linkedin.com/search/results/content/?keywords=${encodeURIComponent(q)}&sortBy="date_posted"`,
+                date: new Date().toISOString(),
+                sentiment: 'neutral',
+                isPlaceholder: true
+            }];
+
+            const searchYouTube = async (q) => {
+                // Use Invidious API (privacy-friendly YouTube frontend) to search
+                const invidious = [
+                    'https://inv.nadeko.net',
+                    'https://invidious.nerdvpn.de',
+                    'https://invidious.jing.rocks'
+                ];
+                
+                for (const instance of invidious) {
+                    try {
+                        const response = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(q)}&type=video&sort_by=upload_date`);
+                        if (!response.ok) continue;
+                        
+                        const data = await response.json();
+                        
+                        if (!Array.isArray(data) || data.length === 0) continue;
+                        
+                        const videos = data.slice(0, 15).map(video => ({
+                            source: 'youtube',
+                            title: video.title,
+                            content: video.description?.slice(0, 200) || '',
+                            author: video.author,
+                            publisher: video.author,
+                            url: `https://www.youtube.com/watch?v=${video.videoId}`,
+                            date: video.published ? new Date(video.published * 1000).toISOString() : new Date().toISOString(),
+                            views: video.viewCount,
+                            sentiment: analyzeSentiment(video.title + ' ' + (video.description || ''))
+                        }));
+                        
+                        if (videos.length > 0) {
+                            console.log(`YouTube: Found ${videos.length} videos`);
+                            return videos;
+                        }
+                    } catch (error) {
+                        console.log('Invidious instance failed, trying next...', error.message);
+                        continue;
+                    }
+                }
+                
+                // Fallback: return a placeholder link
+                console.log('All Invidious instances failed, returning placeholder');
+                return [{
+                    source: 'youtube',
+                    title: `🔍 Search YouTube for "${q}"`,
+                    content: 'Click to search YouTube directly.',
+                    author: 'YouTube',
+                    url: `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}&sp=CAI%253D`,
+                    date: new Date().toISOString(),
+                    sentiment: 'neutral',
+                    isPlaceholder: true
+                }];
+            };
+
             const startSearch = async () => {
                 if (!query.trim()) return;
                 setLoading(true);
                 setMentions([]);
 
                 try {
-                    const [reddit, hn, news, twitter] = await Promise.all([
+                    const [reddit, hn, news, twitter, youtube, linkedin] = await Promise.all([
                         searchReddit(query),
                         searchHackerNews(query),
                         searchGoogleNews(query),
-                        Promise.resolve(getTwitterPlaceholder(query))
+                        Promise.resolve(getTwitterPlaceholder(query)),
+                        searchYouTube(query),
+                        Promise.resolve(getLinkedInPlaceholder(query))
                     ]);
 
-                    const all = [...reddit, ...hn, ...news, ...twitter].sort((a, b) => new Date(b.date) - new Date(a.date));
+                    const all = [...reddit, ...hn, ...news, ...twitter, ...youtube, ...linkedin].sort((a, b) => new Date(b.date) - new Date(a.date));
                     setMentions(all);
                     setLastUpdate(new Date().toLocaleTimeString());
                     generateSummary(all, query);
@@ -191,26 +258,83 @@
                 setShowSummary(true);
                 setSummaryLoading(true);
 
-                // Generate local summary (no API needed)
-                const sources = {};
+                // Filter to last 7 days
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                const recentMentions = realMentions.filter(m => new Date(m.date) >= sevenDaysAgo);
+                const mentionsToUse = recentMentions.length > 0 ? recentMentions : realMentions;
+
+                // Organize by source
+                const bySource = {};
                 const sentiments = { positive: 0, negative: 0, neutral: 0 };
-                realMentions.forEach(m => {
-                    sources[m.source] = (sources[m.source] || 0) + 1;
+                
+                mentionsToUse.forEach(m => {
+                    if (!bySource[m.source]) bySource[m.source] = [];
+                    bySource[m.source].push(m);
                     sentiments[m.sentiment]++;
                 });
-                
-                const sortedSources = Object.entries(sources).sort((a, b) => b[1] - a[1]);
-                const topSource = sortedSources[0];
-                const posPercent = Math.round((sentiments.positive / realMentions.length) * 100);
-                const negPercent = Math.round((sentiments.negative / realMentions.length) * 100);
+
+                // Calculate sentiment
+                const total = mentionsToUse.length;
+                const posPercent = Math.round((sentiments.positive / total) * 100);
+                const negPercent = Math.round((sentiments.negative / total) * 100);
                 
                 let sentimentDesc = 'mixed';
                 if (posPercent > 50) sentimentDesc = 'predominantly positive';
                 else if (negPercent > 50) sentimentDesc = 'predominantly negative';
 
-                const topTitles = realMentions.slice(0, 3).map(m => `"${m.title.slice(0, 60)}${m.title.length > 60 ? '...' : ''}"`).join(', ');
+                // Build summary sections
+                const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                
+                let summaryText = `## Weekly Summary: "${searchQuery}"\n*${today}*\n\n`;
+                summaryText += `**Overview:** Found **${total} mentions** in the past 7 days across ${Object.keys(bySource).length} sources. Overall sentiment is **${sentimentDesc}** (${posPercent}% positive, ${negPercent}% negative).\n\n`;
+                summaryText += `---\n\n`;
 
-                setSummary(`**Overview:** Found **${realMentions.length} mentions** of "${searchQuery}" across ${Object.keys(sources).length} sources. The overall sentiment is **${sentimentDesc}** (${posPercent}% positive, ${negPercent}% negative).\n\n**Top Source:** ${topSource[0].charAt(0).toUpperCase() + topSource[0].slice(1)} leads with **${topSource[1]} mentions**, followed by ${sortedSources[1] ? sortedSources[1][0] + ' (' + sortedSources[1][1] + ')' : 'others'}.\n\n**Recent Headlines:** ${topTitles}`);
+                // Top Headlines by Source
+                const sourceNames = {
+                    news: '📰 Top News Headlines',
+                    reddit: '💬 Reddit Discussions', 
+                    hackernews: '🔶 Hacker News',
+                    youtube: '▶️ YouTube Videos'
+                };
+
+                const sourceOrder = ['news', 'hackernews', 'reddit', 'youtube'];
+                
+                for (const source of sourceOrder) {
+                    if (bySource[source] && bySource[source].length > 0) {
+                        const items = bySource[source].slice(0, 5);
+                        summaryText += `### ${sourceNames[source] || source}\n\n`;
+                        
+                        items.forEach((item, idx) => {
+                            const date = new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            const title = item.title.length > 80 ? item.title.slice(0, 80) + '...' : item.title;
+                            const author = item.publisher || item.author || '';
+                            const stats = [];
+                            if (item.score) stats.push(`↑${item.score}`);
+                            if (item.comments) stats.push(`💬${item.comments}`);
+                            if (item.views) stats.push(`👁${item.views.toLocaleString()}`);
+                            
+                            summaryText += `${idx + 1}. **${title}**\n`;
+                            summaryText += `   ${author ? `*${author}* • ` : ''}${date}${stats.length > 0 ? ' • ' + stats.join(' ') : ''}\n\n`;
+                        });
+                    }
+                }
+
+                // Key Themes (simple keyword extraction)
+                const allText = mentionsToUse.map(m => m.title.toLowerCase()).join(' ');
+                const commonWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been', 'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'shall', 'can', 'need', 'dare', 'ought', 'used', 'it', 'its', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'we', 'they', 'what', 'which', 'who', 'whom', 'whose', 'where', 'when', 'why', 'how', 'all', 'each', 'every', 'both', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'just', 'also', 'now', 'new', 'about', 'into', 'over', '-', '|', '–', searchQuery.toLowerCase()];
+                const words = allText.split(/\s+/).filter(w => w.length > 3 && !commonWords.includes(w));
+                const wordFreq = {};
+                words.forEach(w => { wordFreq[w] = (wordFreq[w] || 0) + 1; });
+                const topWords = Object.entries(wordFreq).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([w]) => w);
+
+                if (topWords.length > 0) {
+                    summaryText += `---\n\n### 🏷️ Key Themes\n\n`;
+                    summaryText += topWords.map(w => `\`${w}\``).join('  ');
+                    summaryText += '\n';
+                }
+
+                setSummary(summaryText);
                 setSummaryLoading(false);
             };
 
@@ -233,14 +357,18 @@
                 twitter: mentions.filter(m => m.source === 'twitter').length,
                 news: mentions.filter(m => m.source === 'news').length,
                 reddit: mentions.filter(m => m.source === 'reddit').length,
-                hn: mentions.filter(m => m.source === 'hackernews').length
+                hn: mentions.filter(m => m.source === 'hackernews').length,
+                youtube: mentions.filter(m => m.source === 'youtube').length,
+                linkedin: mentions.filter(m => m.source === 'linkedin').length
             };
 
             const sourceColors = {
                 news: { bg: '#F5F3FF', color: '#7C3AED', icon: 'N' },
                 reddit: { bg: '#FFF7ED', color: '#EA580C', icon: 'R' },
                 hackernews: { bg: '#FFF7ED', color: '#FF6600', icon: 'Y' },
-                twitter: { bg: '#F7F7F7', color: '#000', icon: '𝕏' }
+                twitter: { bg: '#F7F7F7', color: '#000', icon: '𝕏' },
+                youtube: { bg: '#FEE2E2', color: '#DC2626', icon: '▶' },
+                linkedin: { bg: '#DBEAFE', color: '#2563EB', icon: 'in' }
             };
 
             const sentimentColors = {
@@ -299,7 +427,7 @@
                                 </button>
                             </div>
                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                {['all', 'twitter', 'news', 'reddit', 'hackernews'].map(f => (
+                                {['all', 'news', 'reddit', 'hackernews', 'youtube', 'twitter', 'linkedin'].map(f => (
                                     <button
                                         key={f}
                                         onClick={() => setFilter(f)}
@@ -313,7 +441,7 @@
                                             cursor: 'pointer'
                                         }}
                                     >
-                                        {f === 'all' ? 'All Sources' : f === 'hackernews' ? 'Hacker News' : f.charAt(0).toUpperCase() + f.slice(1)}
+                                        {f === 'all' ? 'All Sources' : f === 'hackernews' ? 'Hacker News' : f === 'youtube' ? 'YouTube' : f === 'linkedin' ? 'LinkedIn' : f.charAt(0).toUpperCase() + f.slice(1)}
                                     </button>
                                 ))}
                             </div>
@@ -321,43 +449,82 @@
 
                         {/* Summary */}
                         {showSummary && (
-                            <div style={{ background: 'linear-gradient(135deg, #F0F9FF 0%, #F5F3FF 100%)', border: '1px solid #DBEAFE', borderRadius: 14, padding: 24, marginBottom: 24 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <div style={{ background: '#fff', border: '1px solid #E8E8E6', borderRadius: 14, marginBottom: 24, overflow: 'hidden' }}>
+                                <div style={{ background: 'linear-gradient(135deg, #F0F9FF 0%, #F5F3FF 100%)', padding: '16px 24px', borderBottom: '1px solid #DBEAFE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div style={{ fontSize: 18, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10 }}>
                                         <span style={{ background: 'linear-gradient(135deg, #2563EB, #7C3AED)', borderRadius: 8, padding: '6px 10px', color: '#fff' }}>✨</span>
-                                        Daily Summary
+                                        Weekly Briefing
                                     </div>
                                     <button onClick={() => setShowSummary(false)} style={{ background: 'none', border: 'none', color: '#8A8A8A', cursor: 'pointer', fontSize: 18 }}>✕</button>
                                 </div>
-                                {summaryLoading ? (
-                                    <div style={{ color: '#8A8A8A', fontSize: 14 }}>⏳ Generating summary...</div>
-                                ) : (
-                                    <div style={{ fontSize: 15, lineHeight: 1.7, color: '#5A5A5A' }}>
-                                        {summary.split('\n\n').map((p, i) => (
-                                            <p key={i} style={{ marginBottom: 12 }} dangerouslySetInnerHTML={{ __html: p.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#1A1A1A">$1</strong>') }} />
-                                        ))}
-                                    </div>
-                                )}
-                                <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #DBEAFE', display: 'flex', gap: 12 }}>
+                                <div style={{ padding: 24, maxHeight: 500, overflowY: 'auto' }}>
+                                    {summaryLoading ? (
+                                        <div style={{ color: '#8A8A8A', fontSize: 14 }}>⏳ Generating summary...</div>
+                                    ) : (
+                                        <div style={{ fontSize: 14, lineHeight: 1.8, color: '#4A4A4A' }}>
+                                            {summary.split('\n').map((line, i) => {
+                                                // Handle different markdown elements
+                                                if (line.startsWith('## ')) {
+                                                    return <h2 key={i} style={{ fontSize: 20, fontWeight: 700, color: '#1A1A1A', marginBottom: 4 }}>{line.replace('## ', '')}</h2>;
+                                                }
+                                                if (line.startsWith('### ')) {
+                                                    return <h3 key={i} style={{ fontSize: 15, fontWeight: 600, color: '#2563EB', marginTop: 20, marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid #E8E8E6' }}>{line.replace('### ', '')}</h3>;
+                                                }
+                                                if (line.startsWith('---')) {
+                                                    return <hr key={i} style={{ border: 'none', borderTop: '1px solid #E8E8E6', margin: '16px 0' }} />;
+                                                }
+                                                if (line.startsWith('*') && line.endsWith('*') && !line.startsWith('**')) {
+                                                    return <p key={i} style={{ fontSize: 13, color: '#8A8A8A', marginBottom: 12 }}>{line.replace(/\*/g, '')}</p>;
+                                                }
+                                                if (line.match(/^\d+\./)) {
+                                                    const formatted = line
+                                                        .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#1A1A1A">$1</strong>')
+                                                        .replace(/\*(.*?)\*/g, '<em style="color:#6A6A6A">$1</em>');
+                                                    return <div key={i} style={{ marginBottom: 4, paddingLeft: 8 }} dangerouslySetInnerHTML={{ __html: formatted }} />;
+                                                }
+                                                if (line.trim().startsWith('`')) {
+                                                    const tags = line.match(/`([^`]+)`/g) || [];
+                                                    return (
+                                                        <div key={i} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                                                            {tags.map((tag, j) => (
+                                                                <span key={j} style={{ background: '#F0F9FF', color: '#2563EB', padding: '4px 10px', borderRadius: 12, fontSize: 12, fontWeight: 500 }}>
+                                                                    {tag.replace(/`/g, '')}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                }
+                                                if (line.trim() === '') return null;
+                                                const formatted = line
+                                                    .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#1A1A1A">$1</strong>')
+                                                    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+                                                return <p key={i} style={{ marginBottom: 8 }} dangerouslySetInnerHTML={{ __html: formatted }} />;
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                                <div style={{ padding: '12px 24px', borderTop: '1px solid #E8E8E6', background: '#FAFAF8', display: 'flex', gap: 12 }}>
                                     <button onClick={() => generateSummary(mentions, query)} style={{ padding: '8px 16px', background: '#2563EB', border: 'none', borderRadius: 6, color: '#fff', fontSize: 13, cursor: 'pointer' }}>🔄 Regenerate</button>
-                                    <button onClick={() => navigator.clipboard.writeText(summary.replace(/\*\*/g, ''))} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #E8E8E6', borderRadius: 6, color: '#5A5A5A', fontSize: 13, cursor: 'pointer' }}>📋 Copy</button>
+                                    <button onClick={() => navigator.clipboard.writeText(summary.replace(/\*\*/g, '').replace(/\*/g, '').replace(/`/g, '').replace(/#{1,3} /g, ''))} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #E8E8E6', borderRadius: 6, color: '#5A5A5A', fontSize: 13, cursor: 'pointer' }}>📋 Copy</button>
                                 </div>
                             </div>
                         )}
 
                         {/* Stats */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16, marginBottom: 24 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 24 }}>
                             {[
                                 { label: 'Total', value: stats.total, meta: 'mentions' },
-                                { label: 'Twitter/X', value: stats.twitter, meta: 'tweets' },
                                 { label: 'News', value: stats.news, meta: 'articles' },
                                 { label: 'Reddit', value: stats.reddit, meta: 'posts' },
-                                { label: 'HN', value: stats.hn, meta: 'stories' }
+                                { label: 'HN', value: stats.hn, meta: 'stories' },
+                                { label: 'YouTube', value: stats.youtube, meta: 'videos' },
+                                { label: 'Twitter', value: stats.twitter, meta: 'link' },
+                                { label: 'LinkedIn', value: stats.linkedin, meta: 'link' }
                             ].map((stat, i) => (
-                                <div key={i} style={{ background: '#fff', border: '1px solid #E8E8E6', borderRadius: 10, padding: 20 }}>
-                                    <div style={{ fontSize: 13, color: '#8A8A8A', marginBottom: 6 }}>{stat.label}</div>
-                                    <div style={{ fontSize: 28, fontWeight: 700 }}>{stat.value}</div>
-                                    <div style={{ fontSize: 12, color: '#5A5A5A' }}>{stat.meta}</div>
+                                <div key={i} style={{ background: '#fff', border: '1px solid #E8E8E6', borderRadius: 10, padding: 16 }}>
+                                    <div style={{ fontSize: 12, color: '#8A8A8A', marginBottom: 4 }}>{stat.label}</div>
+                                    <div style={{ fontSize: 24, fontWeight: 700 }}>{stat.value}</div>
+                                    <div style={{ fontSize: 11, color: '#5A5A5A' }}>{stat.meta}</div>
                                 </div>
                             ))}
                         </div>
@@ -403,6 +570,7 @@
                                                     <span style={{ padding: '4px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', background: sent.bg, color: sent.color }}>{m.sentiment}</span>
                                                     {m.score !== undefined && <span style={{ fontSize: 12, color: '#8A8A8A' }}>↑ {m.score}</span>}
                                                     {m.comments !== undefined && <span style={{ fontSize: 12, color: '#8A8A8A' }}>💬 {m.comments}</span>}
+                                                    {m.views !== undefined && <span style={{ fontSize: 12, color: '#8A8A8A' }}>👁 {m.views.toLocaleString()}</span>}
                                                     <a href={m.hnUrl || m.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: '#2563EB', marginLeft: 'auto', textDecoration: 'none' }}>Open →</a>
                                                 </div>
                                             </div>
