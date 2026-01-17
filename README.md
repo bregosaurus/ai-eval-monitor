@@ -25,12 +25,23 @@ Simply open `index.html` in your browser. Twitter and LinkedIn will show placeho
 4. **Start backend**: `npm start`
 5. **Open frontend**: Open `index.html` in browser or use Live Server
 
+## Production Deployment
+
+🚀 **Deploy to Production**: See [DEPLOYMENT.md](DEPLOYMENT.md) for step-by-step instructions to deploy the backend to Railway/Render/Heroku and connect it to GitHub Pages.
+
+**Quick Deploy to Railway**:
+1. Sign up at [railway.app](https://railway.app)
+2. Create new project from GitHub
+3. Add `TWITTER_BEARER_TOKEN` environment variable
+4. Update frontend URL in `index.html`
+5. Push and you're live!
+
 ## Full Setup Guide
 
-See [SETUP.md](SETUP.md) for complete instructions including:
+See [SETUP.md](SETUP.md) for local development setup:
 - Getting Twitter API credentials
 - Backend configuration
-- Production deployment
+- Local development workflow
 - Troubleshooting
 
 ## Architecture
