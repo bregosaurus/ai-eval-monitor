@@ -34,9 +34,9 @@
 
             // Auto-detect backend URL based on environment
             const getBackendUrl = () => {
-                // If running on GitHub Pages, use Railway backend (you'll replace this after deploying)
+                // If running on GitHub Pages, use Railway backend
                 if (window.location.hostname.includes('github.io')) {
-                    return 'https://YOUR-RAILWAY-APP.railway.app'; // Replace after deploying to Railway
+                    return 'https://ai-eval-monitor-production.up.railway.app';
                 }
                 // For local development
                 return 'http://localhost:3001';
