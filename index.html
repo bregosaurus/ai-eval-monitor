@@ -30,6 +30,79 @@
             const [summary, setSummary] = useState('');
             const [summaryLoading, setSummaryLoading] = useState(false);
             const [showSummary, setShowSummary] = useState(false);
+            const [showRadar, setShowRadar] = useState(true);
+
+            // Industry Radar Data
+            const companies = [
+                {
+                    name: 'LangChain',
+                    logo: '🔗',
+                    color: '#10B981',
+                    tagline: 'Agent Engineering Platform',
+                    website: 'https://langchain.com',
+                    funding: '$260M total • $1.25B valuation (Oct 2025)',
+                    news: [
+                        'Raised $125M Series B at $1.25B valuation (Oct 2025)',
+                        'Released LangChain & LangGraph 1.0 with no-code Agent Builder',
+                        'Hosted Interrupt 2025 conference with 800 attendees',
+                        '90M+ monthly downloads, 35% of Fortune 500 customers'
+                    ],
+                    products: ['LangChain Framework', 'LangGraph', 'LangSmith Observability', 'Agent Builder (no-code)'],
+                    hiring: 'Active hiring across engineering roles',
+                    customers: 'Replit, Clay, Harvey, Rippling, Cloudflare, Cisco, Uber'
+                },
+                {
+                    name: 'Arize AI',
+                    logo: '📊',
+                    color: '#F59E0B',
+                    tagline: 'AI Observability & Evaluation',
+                    website: 'https://arize.com',
+                    funding: '$131M total • Series C $70M (Feb 2025)',
+                    news: [
+                        'Raised $70M Series C led by Adams Street Partners (Feb 2025)',
+                        'Selected by AFWERX for $1.2M/year Air Force contract',
+                        'Launched Copilot v3 "Alyx" with O3 under the hood',
+                        'Phoenix open-source: 2M+ monthly downloads'
+                    ],
+                    products: ['Arize AX Platform', 'Phoenix (open-source)', 'Agent Tracing', 'Audio Evaluation'],
+                    hiring: 'Growing team, expanded Microsoft partnership',
+                    customers: 'Uber, Booking.com, Tripadvisor, Duolingo, Wayfair'
+                },
+                {
+                    name: 'Langfuse',
+                    logo: '🔍',
+                    color: '#6366F1',
+                    tagline: 'Open-Source LLM Observability',
+                    website: 'https://langfuse.com',
+                    funding: 'Acquired by ClickHouse (Jan 2025)',
+                    news: [
+                        '🔥 Acquired by ClickHouse in $400M Series D round (Jan 2025)',
+                        'Now part of ClickHouse\'s AI observability strategy',
+                        '20K+ GitHub stars, 26M+ SDK installs/month',
+                        'Trusted by 19 of Fortune 50, 63 of Fortune 500'
+                    ],
+                    products: ['Tracing & Debugging', 'Prompt Management', 'LLM Evaluations', 'Self-hosted Option'],
+                    hiring: 'Joining ClickHouse team',
+                    customers: 'Fortune 500 enterprises, AI-first startups'
+                },
+                {
+                    name: 'Maxim AI',
+                    logo: '⚡',
+                    color: '#EC4899',
+                    tagline: 'AI Evaluation & Simulation',
+                    website: 'https://getmaxim.ai',
+                    funding: '$3M Seed (Jun 2024) • Elevation Capital',
+                    news: [
+                        'Launched Bifrost: fastest LLM gateway (50x faster than LiteLLM)',
+                        'End-to-end eval platform for agent simulation',
+                        'Growing adoption among enterprise AI teams',
+                        'Focus on RAG pipeline testing and benchmarking'
+                    ],
+                    products: ['Agent Simulation', 'Evaluation Engine', 'Bifrost Gateway', 'Observability'],
+                    hiring: '6 open roles: Engineering, Sales, Marketing (Bengaluru)',
+                    customers: 'Enterprise AI teams, RAG pipeline developers'
+                }
+            ];
 
             const analyzeSentiment = (text) => {
                 const positive = ['breakthrough', 'success', 'excellent', 'great', 'amazing', 'innovative', 'progress', 'improve', 'better', 'good', 'exciting', 'promising'];
@@ -241,6 +314,7 @@
                     </header>
 
                     <main style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px 16px' }}>
+                        {/* Search */}
                         <div style={{ borderRadius: '16px', padding: '20px', marginBottom: '20px', border: '1px solid rgba(63, 63, 70, 0.6)', background: 'rgba(24, 24, 27, 0.5)', backdropFilter: 'blur(8px)' }}>
                             <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
                                 <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && startSearch()}
@@ -264,6 +338,51 @@
                             </div>
                         </div>
 
+                        {/* Industry Radar */}
+                        <div style={{ borderRadius: '16px', marginBottom: '20px', overflow: 'hidden', border: '1px solid rgba(236, 72, 153, 0.2)', background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.05), rgba(99, 102, 241, 0.05))' }}>
+                            <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(236, 72, 153, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#F9A8D4', fontWeight: 600 }}>
+                                    <span style={{ fontSize: '18px' }}>📡</span> Industry Radar
+                                    <span style={{ fontSize: '10px', background: 'rgba(236, 72, 153, 0.2)', padding: '3px 8px', borderRadius: '4px', color: '#F472B6' }}>AI EVAL COMPANIES</span>
+                                </div>
+                                <button onClick={() => setShowRadar(!showRadar)} style={{ background: 'none', border: 'none', color: '#71717a', cursor: 'pointer', fontSize: '12px', fontFamily: 'monospace' }}>{showRadar ? '▼ Hide' : '▶ Show'}</button>
+                            </div>
+                            {showRadar && (
+                                <div style={{ padding: '20px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                                    {companies.map((company, i) => (
+                                        <div key={i} style={{ borderRadius: '12px', border: `1px solid ${company.color}30`, background: `${company.color}08`, padding: '16px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: `${company.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{company.logo}</div>
+                                                    <div>
+                                                        <div style={{ fontWeight: 600, color: 'white' }}>{company.name}</div>
+                                                        <div style={{ fontSize: '11px', color: '#71717a' }}>{company.tagline}</div>
+                                                    </div>
+                                                </div>
+                                                <a href={company.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: company.color, textDecoration: 'none', fontFamily: 'monospace' }}>Visit →</a>
+                                            </div>
+                                            <div style={{ fontSize: '11px', color: company.color, fontFamily: 'monospace', marginBottom: '10px', fontWeight: 500 }}>{company.funding}</div>
+                                            <div style={{ marginBottom: '12px' }}>
+                                                <div style={{ fontSize: '10px', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Latest News</div>
+                                                {company.news.slice(0, 2).map((item, j) => (
+                                                    <div key={j} style={{ fontSize: '12px', color: '#a1a1aa', marginBottom: '4px', paddingLeft: '8px', borderLeft: `2px solid ${company.color}40` }}>{item}</div>
+                                                ))}
+                                            </div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px' }}>
+                                                {company.products.slice(0, 3).map((prod, j) => (
+                                                    <span key={j} style={{ fontSize: '10px', background: `${company.color}15`, color: company.color, padding: '3px 8px', borderRadius: '4px' }}>{prod}</span>
+                                                ))}
+                                            </div>
+                                            <div style={{ fontSize: '10px', color: '#52525b' }}>
+                                                <span style={{ color: '#71717a' }}>👥</span> {company.hiring}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Summary */}
                         {showSummary && (
                             <div style={{ borderRadius: '16px', marginBottom: '20px', overflow: 'hidden', border: '1px solid rgba(99, 102, 241, 0.2)', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.04))' }}>
                                 <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(99, 102, 241, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -292,6 +411,7 @@
                             </div>
                         )}
 
+                        {/* Stats */}
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '20px' }}>
                             {[{ label: 'Total', value: stats.total, color: '#fff' }, { label: 'News', value: stats.news, color: '#818CF8' },
                                 { label: 'Reddit', value: stats.reddit, color: '#FB923C' }, { label: 'HN', value: stats.hn, color: '#FBBF24' },
@@ -303,6 +423,7 @@
                             ))}
                         </div>
 
+                        {/* Mentions */}
                         <div style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #27272a', background: 'rgba(24, 24, 27, 0.5)' }}>
                             <div style={{ padding: '16px 20px', borderBottom: '1px solid #27272a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 600 }}>
