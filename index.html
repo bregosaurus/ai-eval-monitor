@@ -31,6 +31,7 @@
             const [summaryLoading, setSummaryLoading] = useState(false);
             const [showSummary, setShowSummary] = useState(false);
             const [showRadar, setShowRadar] = useState(true);
+            const [backendUrl] = useState('http://localhost:3001');
 
             // Industry Radar Data
             const companies = [
@@ -201,10 +202,33 @@
                     date: new Date().toISOString(), sentiment: 'neutral', isPlaceholder: true }];
             };
 
-            const getTwitterPlaceholder = (q) => [{ source: 'twitter', title: `Search Twitter for "${q}"`,
-                content: 'Click to search Twitter/X directly.', author: 'Twitter/X',
-                url: `https://twitter.com/search?q=${encodeURIComponent(q)}&src=typed_query&f=live`,
-                date: new Date().toISOString(), sentiment: 'neutral', isPlaceholder: true }];
+            const searchTwitter = async (q) => {
+                try {
+                    const response = await fetch(`${backendUrl}/api/twitter/search?q=${encodeURIComponent(q)}&limit=25`);
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        console.warn('Twitter API error:', error);
+                        // Return placeholder on error
+                        return [{ source: 'twitter', title: `Search Twitter for "${q}"`,
+                            content: `Unable to fetch tweets: ${error.message || 'API error'}`,
+                            author: 'Twitter/X',
+                            url: `https://twitter.com/search?q=${encodeURIComponent(q)}&src=typed_query&f=live`,
+                            date: new Date().toISOString(), sentiment: 'neutral', isPlaceholder: true }];
+                    }
+
+                    const result = await response.json();
+                    return result.data || [];
+                } catch (error) {
+                    console.warn('Twitter search failed:', error);
+                    // Return placeholder on network error
+                    return [{ source: 'twitter', title: `Search Twitter for "${q}"`,
+                        content: 'Backend server not running. Click to search Twitter directly.',
+                        author: 'Twitter/X',
+                        url: `https://twitter.com/search?q=${encodeURIComponent(q)}&src=typed_query&f=live`,
+                        date: new Date().toISOString(), sentiment: 'neutral', isPlaceholder: true }];
+                }
+            };
 
             const getLinkedInPlaceholder = (q) => [{ source: 'linkedin', title: `Search LinkedIn for "${q}"`,
                 content: 'Click to search LinkedIn directly.', author: 'LinkedIn',
@@ -217,7 +241,7 @@
                 try {
                     const [reddit, hn, news, twitter, youtube, linkedin] = await Promise.all([
                         searchReddit(query), searchHackerNews(query), searchGoogleNews(query),
-                        Promise.resolve(getTwitterPlaceholder(query)), searchYouTube(query),
+                        searchTwitter(query), searchYouTube(query),
                         Promise.resolve(getLinkedInPlaceholder(query))
                     ]);
                     const all = [...reddit, ...hn, ...news, ...twitter, ...youtube, ...linkedin].sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -253,8 +277,8 @@
                 let summaryText = `## Weekly Summary: "${searchQuery}"\n*${today}*\n\n`;
                 summaryText += `**Overview:** Found **${total} mentions** in the past 7 days across ${Object.keys(bySource).length} sources. Overall sentiment is **${sentimentDesc}** (${posPercent}% positive, ${negPercent}% negative).\n\n---\n\n`;
 
-                const sourceNames = { news: '📰 Top News', reddit: '💬 Reddit', hackernews: '🔶 Hacker News', youtube: '▶️ YouTube' };
-                const sourceOrder = ['news', 'hackernews', 'reddit', 'youtube'];
+                const sourceNames = { news: '📰 Top News', reddit: '💬 Reddit', hackernews: '🔶 Hacker News', twitter: '𝕏 Twitter/X', youtube: '▶️ YouTube' };
+                const sourceOrder = ['news', 'twitter', 'hackernews', 'reddit', 'youtube'];
 
                 for (const source of sourceOrder) {
                     if (bySource[source] && bySource[source].length > 0) {
@@ -281,6 +305,7 @@
             const filteredMentions = filter === 'all' ? mentions : mentions.filter(m => m.source === filter);
             const stats = { total: mentions.length, news: mentions.filter(m => m.source === 'news').length,
                 reddit: mentions.filter(m => m.source === 'reddit').length, hn: mentions.filter(m => m.source === 'hackernews').length,
+                twitter: mentions.filter(m => m.source === 'twitter').length,
                 youtube: mentions.filter(m => m.source === 'youtube').length };
 
             const sourceConfig = { news: { bg: '#818CF8', icon: '📰' }, reddit: { bg: '#FB923C', icon: '💬' },
@@ -412,9 +437,10 @@
                         )}
 
                         {/* Stats */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px', marginBottom: '20px' }}>
                             {[{ label: 'Total', value: stats.total, color: '#fff' }, { label: 'News', value: stats.news, color: '#818CF8' },
                                 { label: 'Reddit', value: stats.reddit, color: '#FB923C' }, { label: 'HN', value: stats.hn, color: '#FBBF24' },
+                                { label: 'Twitter', value: stats.twitter, color: '#E4E4E7' },
                                 { label: 'YouTube', value: stats.youtube, color: '#F87171' }].map((s, i) => (
                                 <div key={i} style={{ borderRadius: '12px', padding: '16px', border: '1px solid #27272a', background: 'rgba(24, 24, 27, 0.5)' }}>
                                     <div style={{ fontSize: '10px', color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'monospace', marginBottom: '4px' }}>{s.label}</div>
@@ -460,6 +486,7 @@
                                                 <span style={{ padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'monospace', background: sent.bg, color: sent.color }}>{m.sentiment}</span>
                                                 {m.score !== undefined && <span style={{ fontSize: '11px', color: '#52525b', fontFamily: 'monospace' }}>↑{m.score}</span>}
                                                 {m.comments !== undefined && <span style={{ fontSize: '11px', color: '#52525b', fontFamily: 'monospace' }}>💬{m.comments}</span>}
+                                                {m.retweets !== undefined && <span style={{ fontSize: '11px', color: '#52525b', fontFamily: 'monospace' }}>🔄{m.retweets}</span>}
                                                 {m.views !== undefined && <span style={{ fontSize: '11px', color: '#52525b', fontFamily: 'monospace' }}>👁{m.views.toLocaleString()}</span>}
                                                 <a href={m.hnUrl || m.url} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 'auto', fontSize: '11px', color: '#818cf8', textDecoration: 'none', fontFamily: 'monospace' }}>Open →</a>
                                             </div>
