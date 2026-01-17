@@ -31,7 +31,17 @@
             const [summaryLoading, setSummaryLoading] = useState(false);
             const [showSummary, setShowSummary] = useState(false);
             const [showRadar, setShowRadar] = useState(true);
-            const [backendUrl] = useState('http://localhost:3001');
+
+            // Auto-detect backend URL based on environment
+            const getBackendUrl = () => {
+                // If running on GitHub Pages, use Railway backend (you'll replace this after deploying)
+                if (window.location.hostname.includes('github.io')) {
+                    return 'https://YOUR-RAILWAY-APP.railway.app'; // Replace after deploying to Railway
+                }
+                // For local development
+                return 'http://localhost:3001';
+            };
+            const [backendUrl] = useState(getBackendUrl());
 
             // Industry Radar Data
             const companies = [
@@ -203,15 +213,28 @@
             };
 
             const searchTwitter = async (q) => {
+                // Check if backend URL is configured
+                if (backendUrl.includes('YOUR-RAILWAY-APP')) {
+                    console.warn('Backend URL not configured yet. See SETUP.md for deployment instructions.');
+                    return [{ source: 'twitter', title: `Search Twitter for "${q}"`,
+                        content: 'Twitter API integration available - deploy backend to activate. Click to search Twitter directly.',
+                        author: 'Twitter/X',
+                        url: `https://twitter.com/search?q=${encodeURIComponent(q)}&src=typed_query&f=live`,
+                        date: new Date().toISOString(), sentiment: 'neutral', isPlaceholder: true }];
+                }
+
                 try {
-                    const response = await fetch(`${backendUrl}/api/twitter/search?q=${encodeURIComponent(q)}&limit=25`);
+                    const response = await fetch(`${backendUrl}/api/twitter/search?q=${encodeURIComponent(q)}&limit=25`, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
 
                     if (!response.ok) {
-                        const error = await response.json();
+                        const error = await response.json().catch(() => ({ message: 'Server error' }));
                         console.warn('Twitter API error:', error);
                         // Return placeholder on error
                         return [{ source: 'twitter', title: `Search Twitter for "${q}"`,
-                            content: `Unable to fetch tweets: ${error.message || 'API error'}`,
+                            content: `Unable to fetch tweets: ${error.message || 'API error'}. Click to search directly.`,
                             author: 'Twitter/X',
                             url: `https://twitter.com/search?q=${encodeURIComponent(q)}&src=typed_query&f=live`,
                             date: new Date().toISOString(), sentiment: 'neutral', isPlaceholder: true }];
@@ -223,7 +246,7 @@
                     console.warn('Twitter search failed:', error);
                     // Return placeholder on network error
                     return [{ source: 'twitter', title: `Search Twitter for "${q}"`,
-                        content: 'Backend server not running. Click to search Twitter directly.',
+                        content: 'Backend server not reachable. Click to search Twitter directly.',
                         author: 'Twitter/X',
                         url: `https://twitter.com/search?q=${encodeURIComponent(q)}&src=typed_query&f=live`,
                         date: new Date().toISOString(), sentiment: 'neutral', isPlaceholder: true }];
