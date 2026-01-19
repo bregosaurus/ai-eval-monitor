@@ -1,0 +1,21 @@
+ICON PLACEHOLDER
+================
+
+To build the Mac app with a proper icon, you need to:
+
+1. Create an icon file named 'icon.icns' in this directory
+2. The icon should be 1024x1024 pixels minimum
+3. You can use the free tool 'Image2Icon' or 'Icon Composer' on Mac to convert PNG to ICNS
+
+Quick method:
+- Create a 1024x1024 PNG file named 'icon.png'
+- Use online converter: https://cloudconvert.com/png-to-icns
+- Or use command line: iconutil -c icns icon.iconset
+
+For now, electron-builder will use a default icon if this file is missing.
+
+Suggested icon design:
+- Black background (#0a0a0b to match app theme)
+- Modern, minimalist design
+- AI/monitoring theme (e.g., radar, chart, magnifying glass)
+- Good contrast for visibility in Dock and Finder

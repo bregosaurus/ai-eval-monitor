@@ -34,6 +34,10 @@
 
             // Auto-detect backend URL based on environment
             const getBackendUrl = () => {
+                // If running in Electron desktop app
+                if (window.ELECTRON_BACKEND_URL) {
+                    return window.ELECTRON_BACKEND_URL;
+                }
                 // If running on GitHub Pages, use Railway backend
                 if (window.location.hostname.includes('github.io')) {
                     return 'https://ai-eval-monitor-production.up.railway.app';

@@ -2,6 +2,8 @@
 
 Real-time media intelligence dashboard for tracking AI evaluation topics across multiple platforms.
 
+Available as both a **web app** and a **native Mac desktop app**.
+
 ## Features
 
 - 🔍 **Multi-Platform Search**: Reddit, Hacker News, Google News, YouTube, Twitter/X, LinkedIn
@@ -13,11 +15,24 @@ Real-time media intelligence dashboard for tracking AI evaluation topics across 
 
 ## Quick Start
 
-### Frontend Only (Limited Features)
+### Option 1: Mac Desktop App 🖥️
+
+Build and run as a native Mac application with embedded backend.
+
+1. **Install dependencies**: `npm install`
+2. **Configure**: Copy `.env.example` to `.env` and add your Twitter Bearer Token (optional)
+3. **Run app**: `npm run electron:dev`
+4. **Build installer**: `npm run build:mac`
+
+📖 **See [DESKTOP-APP.md](DESKTOP-APP.md) for complete desktop app guide**
+
+### Option 2: Web App (Browser-Based) 🌐
+
+#### Frontend Only (Limited Features)
 
 Simply open `index.html` in your browser. Twitter and LinkedIn will show placeholders.
 
-### With Twitter API Integration
+#### With Twitter API Integration
 
 1. **Get Twitter API credentials** (see [SETUP.md](SETUP.md))
 2. **Install dependencies**: `npm install`

@@ -1,13 +1,22 @@
 {
-  "name": "ai-eval-monitor-backend",
+  "name": "ai-eval-monitor",
   "version": "1.0.0",
-  "description": "Backend proxy for AI Eval Monitor with Twitter API integration",
-  "main": "server.js",
+  "description": "AI Eval Monitor - Desktop app for tracking AI evaluation topics across multiple platforms",
+  "main": "electron.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "electron": "electron .",
+    "electron:dev": "NODE_ENV=development electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "build:mac:arm64": "electron-builder --mac --arm64",
+    "build:mac:x64": "electron-builder --mac --x64",
+    "build:mac:universal": "electron-builder --mac --universal",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
   },
-  "keywords": ["twitter", "api", "proxy", "monitoring"],
+  "keywords": ["ai", "monitoring", "evaluation", "twitter", "desktop", "electron", "mac"],
   "author": "",
   "license": "MIT",
   "dependencies": {
@@ -18,10 +27,64 @@
     "express-rate-limit": "^7.1.5"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.2",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
   },
   "engines": {
     "node": ">=14.0.0",
     "npm": ">=6.0.0"
+  },
+  "build": {
+    "appId": "com.aievalmonitor.app",
+    "productName": "AI Eval Monitor",
+    "copyright": "Copyright © 2026",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64", "x64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["arm64", "x64"]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "darkModeSupport": true,
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "title": "AI Eval Monitor ${version}",
+      "backgroundColor": "#0a0a0b"
+    },
+    "files": [
+      "electron.js",
+      "preload.js",
+      "index.html",
+      "package.json",
+      ".env",
+      ".env.example"
+    ],
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    }
   }
 }
